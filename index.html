@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RL Playground for Beginners with Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --border: #30363d;
+      --accent: #58a6ff; --muted: #8b949e; --text: #c9d1d9;
+      --goal: #f59e0b; --trap: #f87171; --success: #3fb950; --danger: #f85149;
+    }
+    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; }
+    body { background-color: var(--bg); color: var(--text); }
+    .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+    .panel { background-color: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+    h1, h2 { color: var(--accent); font-weight: 700; }
+    .tab-btn { background: transparent; color: var(--muted); border: none; padding: 10px 20px; font-size: 1.1rem; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Playground Styles */
+    .grid-wrap { display: grid; grid-template-columns: 1fr 480px; gap: 20px; align-items: start; }
+    @media (max-width: 1100px) { .grid-wrap { grid-template-columns: 1fr; } }
+    .maze { display: grid; gap: 8px; background-color: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; }
+    .cell { aspect-ratio: 1 / 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; font-size: 24px; }
+    .cell.empty { background: #21262d; }
+    .cell.wall { background: #30363d; }
+    .cell.start { background: linear-gradient(45deg, #2f81f7, #58a6ff); }
+    .cell.goal { background: linear-gradient(45deg, var(--goal), #fca5a5); }
+    .cell.trap { background: linear-gradient(45deg, var(--trap), #ef4444); }
+    .agent { position: absolute; font-size: 1.5rem; z-index: 5; transition: transform 0.1s ease-in-out; }
+    .agent.shake { animation: shake-horizontal 0.4s cubic-bezier(.455,.03,.515,.955) both; }
+    @keyframes shake-horizontal { 0%,100%{transform:translateX(0)} 10%,30%,50%,70% {transform:translateX(-4px)} 20%,40%,60%,80% {transform:translateX(4px)} }
+
+    .parrow { position: absolute; font-family: monospace; color: rgba(255,255,255,0.7); pointer-events: none; right: 6px; top: 4px; font-size: 14px; font-weight: 600; }
+    .trail { position: absolute; inset: 0; background: rgba(88, 166, 255, 0.2); z-index: 2; border-radius: 8px; animation: fade-trail 1s forwards; }
+    @keyframes fade-trail { from { opacity: 1; } to { opacity: 0; } }
+    .btn { background: var(--accent); color: white; padding: 10px 14px; border-radius: 8px; border: 0; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+    .btn:hover { filter: brightness(1.1); } .btn:disabled { background: #30363d; cursor: not-allowed; }
+    .btn.secondary { background: #21262d; }
+    .arrow-btn { font-size: 1.5rem; padding: 8px 16px; }
+    input, select { background: #0d1117; color: var(--text); border-radius: 6px; padding: 8px; border: 1px solid var(--border); width: 100%; }
+
+    /* Input styles */
+    label { font-weight: 600; margin-bottom: 6px; display: block; }
+    .input-select, .input-number { margin-top: 4px; }
+
+    /* Learning Hub Styles */
+    .concept-card { background: rgba(0,0,0,0.2); padding: 20px; border-radius: 10px; border-left: 4px solid var(--accent); }
+    .code-block { background-color: #010409; padding: 15px; border-radius: 8px; font-family: monospace; overflow-x: auto; font-size: 14px; }
+    .reward-table td { padding: 8px 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="flex items-center justify-between">
+      <h1 class="text-3xl">RL Playground for Beginners</h1>
+      <div class="flex">
+        <button class="tab-btn active" data-tab="playground">The Playground</button>
+        <button class="tab-btn" data-tab="learn">The Learning Hub</button>
+      </div>
+    </div>
+
+    <!-- PAGE 1: THE PLAYGROUND -->
+    <div id="playground" class="page active mt-6">
+      <div class="grid-wrap">
+        <!-- Maze -->
+        <div class="panel">
+          <div id="maze" class="maze"></div>
+        </div>
+
+        <!-- Controls and Stats -->
+        <div class="panel flex flex-col space-y-4">
+          <div>
+            <h2 class="text-xl mb-4">Controls</h2>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+              <button id="modePlay" class="btn">Play (Human)</button>
+              <button id="modeWatch" class="btn secondary">Watch (AI)</button>
+              <button id="startTrain" class="btn">Start Training</button>
+              <button id="resetBtn" class="btn secondary">Reset All</button>
+            </div>
+          </div>
+
+          <div class="border-t border-gray-700"></div>
+
+          <div>
+            <h2 class="text-xl mb-3">Environment Settings</h2>
+            <label>
+              Grid Size:
+              <select id="gridSize" class="input-select">
+                <option value="5" selected>5 x 5</option>
+                <option value="7">7 x 7</option>
+                <option value="9">9 x 9</option>
+              </select>
+            </label>
+            <label>
+              Number of Traps:
+              <input type="number" id="numTraps" value="3" min="1" max="20" class="input-number" />
+            </label>
+            <label>
+              Number of Walls:
+              <input type="number" id="numWalls" value="5" min="1" max="30" class="input-number" />
+            </label>
+            <label>
+              <input type="checkbox" id="randomStart"/> Random Start Position
+            </label>
+            <button id="applySettings" class="btn w-full mt-2">Apply Settings & Reset</button>
+          </div>
+
+          <div class="border-t border-gray-700"></div>
+
+          <div>
+            <h2 class="text-xl mb-2">Live Stats</h2>
+            <div class="space-y-4">
+              <div class="bg-gray-900 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-400">Human Player Stats</h3>
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                  <div><span class="text-sm">Steps</span><p id="humanSteps" class="text-lg font-mono">0</p></div>
+                  <div><span class="text-sm">Score</span><p id="humanScore" class="text-lg font-mono">0</p></div>
+                  <div><span class="text-sm">State (row, col)</span><p id="humanState" class="text-lg font-mono">(0, 0)</p></div>
+                  <div><span class="text-sm">Last Reward</span><p id="lastRewardDisplay" class="text-lg font-mono">—</p></div>
+                </div>
+                <div class="mt-2"><span class="text-sm">Status</span><p id="statusMessage" class="text-lg font-mono h-6">—</p></div>
+              </div>
+              <div class="bg-gray-900 p-4 rounded-lg">
+                <h3 class="font-semibold text-gray-400">AI Training Stats</h3>
+                <div class="grid grid-cols-2 gap-4 mt-2">
+                  <div><span class="text-sm">Episode</span><p id="aiEpisode" class="text-lg font-mono">0</p></div>
+                  <div><span class="text-sm">Epsilon (ε)</span><p id="aiEpsilon" class="text-lg font-mono">1.00</p></div>
+                  <div><span class="text-sm">Last Ep. Steps</span><p id="aiLastSteps" class="text-lg font-mono">—</p></div>
+                  <div><span class="text-sm">Last Ep. Reward</span><p id="aiLastReward" class="text-lg font-mono">—</p></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-gray-700"></div>
+
+          <div class="text-center">
+            <h3 class="text-lg font-semibold text-gray-400 mb-2">Manual Controls</h3>
+            <div class="inline-grid grid-cols-3 grid-rows-3 gap-2">
+              <button data-action="UP" class="arrow-btn btn secondary col-start-2">▲</button>
+              <button data-action="LEFT" class="arrow-btn btn secondary row-start-2">◀</button>
+              <button data-action="DOWN" class="arrow-btn btn secondary row-start-2 col-start-2">▼</button>
+              <button data-action="RIGHT" class="arrow-btn btn secondary row-start-2 col-start-3">▶</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE 2: THE LEARNING HUB -->
+    <div id="learn" class="page mt-6">
+  <div class="panel">
+    <h1 class="text-3xl mb-4">Reinforcement Learning: The Ultimate Beginner's Guide</h1>
+    <div class="space-y-8 mt-6">
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 1: What is Reinforcement Learning?</h2>
+        <p>
+          Reinforcement Learning (RL) lets computers and robots learn by **trial and error**. It’s like playing a game: try something, see if it works, get a reward for good moves or a penalty for mistakes, and gradually get smarter! RL is used for self-driving cars, smart robots, video game agents, and more.
+        </p>
+        <ul class="list-disc ml-4 mt-3">
+          <li>The key: The computer/robot is not told the answers ahead of time, it discovers them.</li>
+        </ul>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 2: The Parts of RL</h2>
+        <ul class="list-disc ml-4 mt-3">
+          <li><b>Agent:</b> The "player" or learner (the robot 🤖 in the grid).</li>
+          <li><b>Environment:</b> The world/arena where the agent moves (the grid with walls, treasure, traps).</li>
+          <li><b>State:</b> The current situation (where the agent is, e.g., row 2, column 3).</li>
+          <li><b>Action:</b> Any move the agent can make (Up, Down, Left, Right).</li>
+          <li><b>Reward:</b> The feedback/punishment the agent receives for each move (positive: treasure, negative: trap/wall).</li>
+        </ul>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 3: The Agent's Journey</h2>
+        <ol class="list-decimal ml-6 mt-3">
+          <li>Start at some grid cell (state).</li>
+          <li>Pick an action (move Up, Down, Left, Right).</li>
+          <li>Land in a new state, receive a reward or penalty.</li>
+          <li>Repeat, learning which state-action moves lead to success over time.</li>
+        </ol>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 4: What is a Policy?</h2>
+        <p>
+          A <b>policy</b> is the agent’s personal map: a rule telling it what action to take from every possible state. At first, its policy is random—after lots of learning, it becomes very smart (go straight to the goal, avoid traps, etc).
+        </p>
+        <p>
+          Think of it as a game plan that gets better as the agent explores!
+        </p>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 5: What is the Q-Table and Q-Values?</h2>
+        <p>
+          The **Q-table** is like the agent’s memory book of best moves. For every position (“state”) in the grid, the agent keeps a score called a “Q-value” for each direction (action).
+        </p>
+        <ul class="list-disc ml-4 mt-3">
+          <li>High Q-value: “This move led to reward!”</li>
+          <li>Low/negative Q-value: “This move led to a trap or wall.”</li>
+          <li>At the beginning, all Q-values are zero because the agent knows nothing.</li>
+        </ul>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 6: How Does Q-Learning Work?</h2>
+        <p>
+          As the agent explores, the Q-table is updated using **Q-learning**. Here’s how the agent gets smarter, step by step:</p>
+        <ol class="list-decimal ml-6 mt-3">
+          <li>The agent tries a move; receives a reward.</li>
+          <li>It updates its Q-value for that move, using the magic formula:
+            <div class="code-block mt-2">
+Q[state][action] ← Q[state][action] + learning_rate × [reward + discount × max(Q[next_state]) - Q[state][action]]
+            </div>
+          </li>
+          <li>The agent keeps repeating this, and Q-values grow “smarter” with each experience.</li>
+        </ol>
+        <ul class="list-disc ml-4 mt-3">
+          <li><b>learning_rate (alpha):</b> How quickly the agent changes its beliefs.</li>
+          <li><b>discount (gamma):</b> How much it values future rewards over immediate ones.</li>
+          <li><b>max(Q[next_state]):</b> The highest Q for the next spot (the best the agent *could* achieve from there).</li>
+        </ul>
+        <p class="mt-2">
+          Over many tries, the agent’s Q-table starts showing the fastest/safest routes to the treasure.
+        </p>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 7: Example — Rewards in This Game</h2>
+        <table class="w-full text-left mt-4 bg-gray-900 rounded-lg">
+          <thead>
+            <tr><th class="p-3">If the agent...</th><th class="p-3">Reward</th></tr>
+          </thead>
+          <tbody>
+            <tr class="border-t border-gray-700"><td class="p-3">Finds the Treasure</td><td class="p-3 text-green-400 font-bold">+10</td></tr>
+            <tr class="border-t border-gray-700"><td class="p-3">Falls into a Trap</td><td class="p-3 text-red-400 font-bold">-10</td></tr>
+            <tr class="border-t border-gray-700"><td class="p-3">Bumps into a Wall</td><td class="p-3 text-red-400 font-bold">-5</td></tr>
+            <tr class="border-t border-gray-700"><td class="p-3">Takes an empty step</td><td class="p-3 text-yellow-400 font-bold">-0.1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 8: Why is RL so Powerful?</h2>
+        <p>
+          For small grids, humans can find a path. But if the grid gets bigger, with lots of traps and walls, it becomes hard to “just memorize”—you need to learn wisely, from experience. RL lets agents learn clever strategies for any layout, even ones it has never seen before!
+        </p>
+        <ul class="list-disc ml-4 mt-3">
+          <li>Try making the playground harder above and see how the agent “learns” what to do!</li>
+          <li>Keep training—see Q-table arrows that point the smart way.</li>
+        </ul>
+      </div>
+
+      <div class="concept-card">
+        <h2 class="text-2xl mb-2">Step 9: Final Challenge — Try It Yourself!</h2>
+        <p>
+          In this playground, <b>you</b> can be the agent! Race against the AI. Tinker with the grid, number of traps, and more, and see how RL helps the agent master the maze. This is the start of all powerful AI learning!
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Tabs switching
+      const tabs = document.querySelectorAll('.tab-btn'), pages = document.querySelectorAll('.page');
+      tabs.forEach(tab => tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        pages.forEach(p => p.classList.remove('active'));
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      }));
+
+      // Elements
+      const mazeEl = document.getElementById('maze'),
+        humanStepsEl = document.getElementById('humanSteps'),
+        humanScoreEl = document.getElementById('humanScore'),
+        humanStateEl = document.getElementById('humanState'),
+        lastRewardDisplayEl = document.getElementById('lastRewardDisplay'),
+        statusMessageEl = document.getElementById('statusMessage'),
+        aiEpisodeEl = document.getElementById('aiEpisode'),
+        aiEpsilonEl = document.getElementById('aiEpsilon'),
+        aiLastStepsEl = document.getElementById('aiLastSteps'),
+        aiLastRewardEl = document.getElementById('aiLastReward'),
+        modePlayBtn = document.getElementById('modePlay'),
+        modeWatchBtn = document.getElementById('modeWatch'),
+        resetBtn = document.getElementById('resetBtn'),
+        startTrainBtn = document.getElementById('startTrain'),
+        applySettingsBtn = document.getElementById('applySettings'),
+        gridSizeSelect = document.getElementById('gridSize'),
+        numTrapsInput = document.getElementById('numTraps'),
+        numWallsInput = document.getElementById('numWalls'),
+        randomStartCheckbox = document.getElementById('randomStart');
+
+      // Core variables and constants
+      let GRID_SIZE = 5, env = [], qTable = [];
+      const ACTIONS = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+      const REWARDS = { 'T': 10, 'X': -10, 'W': -5, ' ': -0.1, 'S': -0.1 };
+      let agent = { row: 0, col: 0 }, mode = 'idle', isTraining = false, animationFrameId = null;
+      let humanSteps = 0, humanScore = 0, lastEpisodeStats = { steps: '—', reward: '—' };
+      let isHumanMoveInProgress = false, gameOver = false;
+
+      // New controls vars:
+      let numTraps = 3, numWalls = 5, randomStart = false;
+
+      // Helpers
+      const idx = (r, c) => r * GRID_SIZE + c;
+      const rc = (i) => ({ row: Math.floor(i / GRID_SIZE), col: i % GRID_SIZE });
+
+      // Generate new environment grid with settings:
+      function generateEnv() {
+        // start with all empty cells
+        let newEnv = Array(GRID_SIZE * GRID_SIZE).fill(' ');
+
+        // helper function to get random empty positions
+        function getEmptyPositions() {
+          return newEnv.map((v, i) => ({ val: v, idx: i })).filter(e => e.val === ' ').map(e => e.idx);
+        }
+
+        // Place goal
+        let placedGoal = false;
+        while (!placedGoal) {
+          const goalPos = Math.floor(Math.random() * newEnv.length);
+          if (newEnv[goalPos] === ' ') {
+            newEnv[goalPos] = 'T';
+            placedGoal = true;
+          }
+        }
+
+        // Place traps randomly
+        let trapsPlaced = 0;
+        while (trapsPlaced < numTraps) {
+          const pos = Math.floor(Math.random() * newEnv.length);
+          if (newEnv[pos] === ' ') {
+            newEnv[pos] = 'X';
+            trapsPlaced++;
+          }
+        }
+
+        // Place walls randomly
+        let wallsPlaced = 0;
+        while (wallsPlaced < numWalls) {
+          const pos = Math.floor(Math.random() * newEnv.length);
+          if (newEnv[pos] === ' ') {
+            newEnv[pos] = 'W';
+            wallsPlaced++;
+          }
+        }
+
+        // Place start position
+        if (randomStart) {
+          // Random start on empty cell (not trap, wall, goal)
+          let placedStart = false;
+          while (!placedStart) {
+            const pos = Math.floor(Math.random() * newEnv.length);
+            if (newEnv[pos] === ' ') {
+              newEnv[pos] = 'S';
+              agent = rc(pos);
+              placedStart = true;
+            }
+          }
+        } else {
+          // Fixed start top-left available cell (0,0), replace whatever is there (including trap)
+          const startIndex = 0;
+          // remove old start if present anywhere
+          newEnv = newEnv.map(c => (c === 'S' ? ' ' : c));
+          newEnv[startIndex] = 'S';
+          agent = rc(startIndex);
+        }
+
+        return newEnv;
+      }
+
+      // Reset environment and variables, reinit qTable
+      function resetAll() {
+        if (isTraining) stopTraining();
+        isTraining = false;
+        GRID_SIZE = parseInt(gridSizeSelect.value, 10);
+        numTraps = Math.min(parseInt(numTrapsInput.value, 10), Math.floor(GRID_SIZE * GRID_SIZE / 4));
+        numWalls = Math.min(parseInt(numWallsInput.value, 10), Math.floor(GRID_SIZE * GRID_SIZE / 3));
+        randomStart = randomStartCheckbox.checked;
+
+        env = generateEnv();
+        qTable = Array.from({ length: GRID_SIZE * GRID_SIZE }, () => Array(4).fill(0));
+
+        humanSteps = 0;
+        humanScore = 0;
+        lastEpisodeStats = { steps: '—', reward: '—' };
+        mode = 'idle';
+        gameOver = false;
+        statusMessageEl.textContent = '—';
+        statusMessageEl.style.color = 'var(--muted)';
+        lastRewardDisplayEl.textContent = '—';
+        aiEpisodeEl.textContent = 0;
+        aiEpsilonEl.textContent = (1.0).toFixed(2);
+
+        updateUI();
+        renderGrid();
+      }
+
+      // Update stats UI
+      function updateUI() {
+        humanStepsEl.textContent = humanSteps;
+        humanScoreEl.textContent = humanScore.toFixed(1);
+        humanStateEl.textContent = `(${agent.row}, ${agent.col})`;
+        aiLastStepsEl.textContent = lastEpisodeStats.steps;
+        aiLastRewardEl.textContent = lastEpisodeStats.reward;
+      }
+
+      // Render grid and cells, add emojis and agent
+      function renderGrid() {
+        mazeEl.style.gridTemplateColumns = `repeat(${GRID_SIZE}, 1fr)`;
+        mazeEl.innerHTML = '';
+        env.forEach((type) => {
+          const cell = document.createElement('div');
+          let cellTypeClass = 'empty';
+          if (type === 'W') cellTypeClass = 'wall';
+          else if (type === 'T') cellTypeClass = 'goal';
+          else if (type === 'X') cellTypeClass = 'trap';
+          else if (type === 'S') cellTypeClass = 'start';
+          cell.className = `cell ${cellTypeClass}`;
+          let emoji = '';
+          if (type === 'T') emoji = '🔶';
+          else if (type === 'X') emoji = '🔥';
+          else if (type === 'W') emoji = '🧱';
+          cell.innerHTML = `<span>${emoji}</span><div class="parrow"></div>`;
+          mazeEl.appendChild(cell);
+        });
+        placeAgentVisual();
+        updateQDisplay();
+      }
+
+      // Put the agent emoji on the grid
+      function placeAgentVisual() {
+        document.querySelectorAll('.agent').forEach(a => a.remove());
+        const agentEl = document.createElement('div');
+        agentEl.className = 'agent';
+        agentEl.textContent = '🤖';
+        const parentCell = mazeEl.children[idx(agent.row, agent.col)];
+        if (parentCell) parentCell.appendChild(agentEl);
+      }
+
+      // Show arrows on cells indicating best action from Q-table
+      function updateQDisplay() {
+        for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
+          const qs = qTable[i];
+          const pdiv = mazeEl.children[i].querySelector('.parrow');
+          if (qs.every(q => q === 0)) {
+            pdiv.textContent = '';
+            continue;
+          }
+          const maxQ = Math.max(...qs);
+          const bestActionIndex = qs.indexOf(maxQ);
+          pdiv.textContent = ['↑', '↓', '←', '→'][bestActionIndex];
+        }
+      }
+
+      // Calculate agent's next move based on action
+      function step(currentPos, action) {
+        let { row, col } = currentPos;
+        let attemptedRow = row, attemptedCol = col;
+        if (action === 'UP') attemptedRow = Math.max(0, row - 1);
+        if (action === 'DOWN') attemptedRow = Math.min(GRID_SIZE - 1, row + 1);
+        if (action === 'LEFT') attemptedCol = Math.max(0, col - 1);
+        if (action === 'RIGHT') attemptedCol = Math.min(GRID_SIZE - 1, col + 1);
+
+        const type = env[idx(attemptedRow, attemptedCol)];
+        if (type === 'W') {
+          // Wall: don't move, shake animation, penalty
+          const agentEl = mazeEl.children[idx(row, col)]?.querySelector('.agent');
+          if (agentEl) {
+            agentEl.classList.add('shake');
+            setTimeout(() => agentEl.classList.remove('shake'), 400);
+          }
+          return { newPos: { row, col }, reward: REWARDS['W'], done: false };
+        }
+        // Move result: reward based on cell content
+        const reward = REWARDS[type];
+        const done = (type === 'T' || type === 'X');
+        return { newPos: { row: attemptedRow, col: attemptedCol }, reward, done, cellType: type };
+      }
+
+      // Human player move handler
+      function handleHumanAction(action) {
+        if (mode !== 'play' || isTraining || isHumanMoveInProgress || gameOver) return;
+        isHumanMoveInProgress = true;
+
+        const { newPos, reward, done, cellType } = step(agent, action);
+        agent = newPos;
+        humanSteps++;
+        humanScore += reward;
+
+        placeAgentVisual();
+        updateUI();
+
+        lastRewardDisplayEl.textContent = reward.toFixed(1);
+        lastRewardDisplayEl.style.color = reward > 0 ? 'var(--success)' : 'var(--danger)';
+
+        if (done) {
+          mode = 'idle';
+          gameOver = true;
+          setTimeout(() => {
+            statusMessageEl.textContent =
+              cellType === 'T'
+                ? 'You Win! 🎉'
+                : cellType === 'X'
+                ? 'You Fell into a Trap! 😢'
+                : 'Game Over!';
+            statusMessageEl.style.color =
+              cellType === 'T' ? 'var(--success)' : cellType === 'X' ? 'var(--danger)' : 'var(--accent)';
+          }, 200);
+
+          // Auto-reset and restart after a short delay for continuous play
+          setTimeout(() => {
+            resetAll();
+            mode = 'play';
+            statusMessageEl.textContent = 'New game started! Use arrow keys or buttons.';
+            statusMessageEl.style.color = 'var(--muted)';
+            isHumanMoveInProgress = false;
+            gameOver = false;
+          }, 2500);
+        } else {
+          statusMessageEl.textContent = 'Keep going...';
+          statusMessageEl.style.color = 'var(--muted)';
+          setTimeout(() => {
+            isHumanMoveInProgress = false;
+          }, 150);
+        }
+      }
+
+      // AI chooses action based on epsilon-greedy policy
+      function chooseAction(state, currentEpsilon) {
+        if (Math.random() < currentEpsilon) return Math.floor(Math.random() * 4);
+        return qTable[state].indexOf(Math.max(...qTable[state]));
+      }
+
+      // Run one full AI training episode
+      function runEpisode(currentEpsilon) {
+        let state = env.indexOf('S'), pos = rc(state), done = false, steps = 0, totalReward = 0;
+        while (!done && steps < 100) {
+          const actionIndex = chooseAction(state, currentEpsilon);
+          const { newPos, reward, done: episodeDone } = step(pos, ACTIONS[actionIndex]);
+          const newState = idx(newPos.row, newPos.col);
+          const oldQ = qTable[state][actionIndex], nextMaxQ = Math.max(...qTable[newState]);
+          const alpha = 0.1, gamma = 0.9;
+          qTable[state][actionIndex] = oldQ + alpha * (reward + gamma * nextMaxQ - oldQ);
+          state = newState; pos = newPos; done = episodeDone; steps++; totalReward += reward;
+        }
+        return { steps, totalReward };
+      }
+
+      function startTraining() {
+        if (isTraining) { stopTraining(); return; }
+        isTraining = true; mode = 'training';
+        startTrainBtn.textContent = 'Stop Training';
+        let episode = 0, currentEpsilon = 1.0, decay = 0.0005;
+        statusMessageEl.textContent = 'AI is training...';
+        statusMessageEl.style.color = 'var(--muted)';
+
+        function trainingLoop() {
+          for (let i = 0; i < 20; i++) {
+            const stats = runEpisode(currentEpsilon);
+            if (i === 19) lastEpisodeStats = { steps: stats.steps, reward: stats.totalReward.toFixed(1) };
+            episode++;
+            currentEpsilon = Math.max(0.01, currentEpsilon * (1 - decay));
+          }
+          updateQDisplay();
+          aiEpisodeEl.textContent = episode;
+          aiEpsilonEl.textContent = currentEpsilon.toFixed(2);
+          updateUI();
+          if (isTraining) animationFrameId = requestAnimationFrame(trainingLoop);
+        }
+        trainingLoop();
+      }
+
+      function stopTraining() {
+        isTraining = false;
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        startTrainBtn.textContent = 'Start Training';
+        statusMessageEl.textContent = 'Training stopped.';
+        mode = 'idle';
+      }
+
+      // AI plays a full episode visually
+      async function watchAI() {
+        if (isTraining) stopTraining();
+        mode = 'watch';
+        agent = rc(env.indexOf('S'));
+        placeAgentVisual();
+        let done = false, watchSteps = 0;
+        statusMessageEl.textContent = 'AI is playing...';
+        statusMessageEl.style.color = 'var(--muted)';
+        while (!done && watchSteps < 50) {
+          const state = idx(agent.row, agent.col);
+          const actionIndex = chooseAction(state, 0);
+          const { newPos, reward, done: episodeDone, cellType } = step(agent, ACTIONS[actionIndex]);
+          const fromCell = mazeEl.children[idx(agent.row, agent.col)];
+          fromCell.insertAdjacentHTML('beforeend', '<div class="trail"></div>');
+          agent = newPos;
+          placeAgentVisual();
+          done = episodeDone;
+          watchSteps++;
+          if (done) {
+            statusMessageEl.textContent =
+              cellType === 'T'
+                ? 'AI Wins! 🤖🎉'
+                : cellType === 'X'
+                ? 'AI fell into a trap!'
+                : 'Game Over!';
+            statusMessageEl.style.color =
+              cellType === 'T' ? 'var(--success)' : cellType === 'X' ? 'var(--danger)' : 'var(--accent)';
+          }
+          await new Promise(res => setTimeout(res, 150));
+        }
+      }
+
+      // Event bindings
+      document.querySelectorAll('[data-action]').forEach(b => b.addEventListener('click', () => handleHumanAction(b.dataset.action)));
+      resetBtn.addEventListener('click', resetAll);
+      startTrainBtn.addEventListener('click', startTraining);
+
+      modePlayBtn.addEventListener('click', () => {
+        resetAll();
+        mode = 'play';
+        statusMessageEl.textContent = 'Your turn! Use arrow keys or buttons.';
+        statusMessageEl.style.color = 'var(--muted)';
+        updateUI();
+      });
+
+      modeWatchBtn.addEventListener('click', watchAI);
+      applySettingsBtn.addEventListener('click', () => {
+        // Apply selected settings and reset environment
+        resetAll();
+        statusMessageEl.textContent = 'Settings applied. Ready to play!';
+        statusMessageEl.style.color = 'var(--muted)';
+      });
+
+      document.addEventListener('keydown', e => {
+        const keyMap = { ArrowUp: 'UP', ArrowDown: 'DOWN', ArrowLeft: 'LEFT', ArrowRight: 'RIGHT' };
+        if (keyMap[e.key]) {
+          e.preventDefault();
+          handleHumanAction(keyMap[e.key]);
+        }
+      });
+
+      // Initial setup
+      resetAll();
+    });
+  </script>
+</body>
+</html>
